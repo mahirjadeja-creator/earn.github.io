@@ -41,3 +41,73 @@ def main():
 
 if __name__ == "__main__":
     main()
+import streamlit as st
+import stripe
+import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+
+# Function to create a payment intent
+def create_payment_intent(amount):
+    return stripe.PaymentIntent.create(
+        amount=amount,
+        currency='usd',
+    )
+
+def main():
+    st.title("Payment Example App")
+
+    st.subheader("Make a Payment")
+    
+    # Input for payment amount
+    amount = st.number_input("Enter amount (in cents):", min_value=100)  # Minimum $1
+
+    if st.button("Pay"):
+        if amount:
+            try:
+                # Create a Payment Intent
+                payment_intent = create_payment_intent(amount)
+
+                # Get the client secret
+                client_secret = payment_intent['client_secret']
+
+                # Display Stripe.js form
+                st.markdown("""
+                <form action="" method="POST" id="payment-form">
+                    <div id="card-element"></div>
+                    <button id="submit">Pay</button>
+                    <div id="payment-result"></div>
+                </form>
+                <script src="https://js.stripe.com/v3/"></script>
+                <script>
+                    var stripe = Stripe('YOUR_PUBLIC_STRIPE_KEY');
+                    var elements = stripe.elements();
+                    var cardElement = elements.create('card');
+                    cardElement.mount('#card-element');
+
+                    document.getElementById('payment-form').addEventListener('submit', function(event) {
+                        event.preventDefault();
+                        stripe.confirmCardPayment('""" + client_secret + """', {
+                            payment_method: {
+                                card: cardElement,
+                            }
+                        }).then(function(result) {
+                            if (result.error) {
+                                document.getElementById('payment-result').innerText = result.error.message;
+                            } else {
+                                if (result.paymentIntent.status === 'succeeded') {
+                                    document.getElementById('payment-result').innerText = 'Payment successful!';
+                                }
+                            }
+                        });
+                    });
+                </script>
+                """, unsafe_allow_html=True)
+            except Exception as e:
+                st.error(f"Error creating payment: {e}")
+
+if __name__ == "__main__":
+    main()
